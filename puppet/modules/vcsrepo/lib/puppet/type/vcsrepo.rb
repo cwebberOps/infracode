@@ -22,6 +22,9 @@ Puppet::Type.newtype(:vcsrepo) do
   feature :ssh_identity,
           "The provider supports a configurable SSH identity file"
 
+  feature :modules,
+          "The repository contains modules that can be chosen of"
+
   ensurable do
     attr_accessor :latest
 
@@ -73,7 +76,7 @@ Puppet::Type.newtype(:vcsrepo) do
       prov = @resource.provider
       if prov
         if prov.working_copy_exists?
-          prov.latest? ? :latest : :present
+          (@should.include?(:latest) && prov.latest?) ? :latest : :present
         elsif prov.class.feature?(:bare_repositories) and prov.bare_exists?
           :bare
         else
@@ -147,5 +150,9 @@ Puppet::Type.newtype(:vcsrepo) do
 
   newparam :identity, :required_features => [:ssh_identity] do
     desc "SSH identity file"
+  end
+  
+  newparam :module, :required_features => [:modules] do
+    desc "The repository module to manage"
   end
 end
