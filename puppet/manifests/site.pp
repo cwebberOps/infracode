@@ -1,3 +1,3 @@
 include "ssh"
 include "packages::standard"
-include "apache2"
+include "apache"
