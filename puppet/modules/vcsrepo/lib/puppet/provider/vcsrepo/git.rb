@@ -4,7 +4,7 @@ Puppet::Type.type(:vcsrepo).provide(:git, :parent => Puppet::Provider::Vcsrepo) 
   desc "Supports Git repositories"
 
   ##TODO modify the commands below so that the su - is included
-  commands :git => 'git'
+  optional_commands :git => 'git'
   defaultfor :git => :exists
   has_features :bare_repositories, :reference_tracking, :ssh_identity
 
@@ -17,7 +17,7 @@ Puppet::Type.type(:vcsrepo).provide(:git, :parent => Puppet::Provider::Vcsrepo) 
         if @resource.value(:ensure) == :bare
           notice "Ignoring revision for bare repository"
         else
-          checkout_or_reset
+          checkout
         end
       end
       if @resource.value(:ensure) != :bare
@@ -67,7 +67,7 @@ Puppet::Type.type(:vcsrepo).provide(:git, :parent => Puppet::Provider::Vcsrepo) 
   end
 
   def revision=(desired)
-    checkout_or_reset(desired)
+    checkout(desired)
     if local_branch_revision?(desired)
       # reset instead of pull to avoid merge conflicts. assuming remote is
       # authoritative.
@@ -96,6 +96,7 @@ Puppet::Type.type(:vcsrepo).provide(:git, :parent => Puppet::Provider::Vcsrepo) 
   def update_references
     at_path do
       git_with_identity('fetch', '--tags', 'origin')
+      update_owner_and_excludes
     end
   end
 
@@ -187,14 +188,12 @@ Puppet::Type.type(:vcsrepo).provide(:git, :parent => Puppet::Provider::Vcsrepo) 
     false
   end
 
-  def checkout_or_reset(revision = @resource.value(:revision))
-    if local_branch_revision?
-      reset(revision)
-    elsif tag_revision?
-      at_path { git_with_identity('checkout', revision) }
-    elsif remote_branch_revision?
+  def checkout(revision = @resource.value(:revision))
+    if !local_branch_revision? && remote_branch_revision?
       #at_path { git_with_identity('checkout', '-b', revision, '--track', "origin/#{revision}") }
       at_path { git_with_identity('pull') }
+    else
+      at_path { git_with_identity('checkout', '--force', revision) }
     end
   end
 
@@ -263,6 +262,7 @@ Puppet::Type.type(:vcsrepo).provide(:git, :parent => Puppet::Provider::Vcsrepo) 
       end
       current = @resource.value(:revision) if current == canonical
     end
+    update_owner_and_excludes
     return current
   end
 
